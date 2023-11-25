@@ -1,0 +1,9 @@
+[package]
+name = "bookkeep"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "*", features = ["derive"] }
+serde_yaml = "*"
+time = { version = "*", features = ["serde-human-readable"] }
