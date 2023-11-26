@@ -1,0 +1,46 @@
+# The whole bookkeeping is configured from this file. Core data is given here,
+# and the rest is included by giving file-paths to transaction data for periods.
+name: 2023
+# Accounts need to be declared both to validate against misspellings and to
+# specify the type of account (to give a more helpful summary when calculating).
+accounts:
+  # Accounts transferred from the previous bookkeeping, or created to match your
+  # inventory/bank-statement/... Should end up being the negative equal of the
+  # corresponding account in the previous bookkeeping.
+  # (The tag prevents them from being shown extraneously, as they should only be
+  # changed once at start of year.)
+  initial_money: initial_value
+  initial_mortgage: initial_value
+  # Assets, debtors and creditors (incoming and outgoing debt, respectively) are
+  # summed to give the current value of your bookkeeping.
+  money: asset
+  mortgage: creditor
+  # Incomes and expences are summed to give your total result. In essence, how
+  # much did you spend compared to how much you made.
+  salary: income
+  mortgage_interest: expense
+  electronics: expense
+groupings:
+# This bookkeeping application doesn't allow any increase in money, so to set an
+# initial account balance you must subtract it from an "initial_value" account.
+# This isn't verified across years, but subtracting from a specific account
+# corresponding to an account from previous bookkeeping makes it easy to check
+# against the previous year's sums.
+- name: Start of year
+  transactions:
+  # A transaction should move money between named accounts
+  # The moved money should sum to 0, provably not adding any new money.
+  # (This invariant is verified when calculating.)
+  - name: Initial mortgage
+    date: 2023-01-01
+    transfers:
+      initial_mortgage: 300000
+      mortgage: -300000
+  - name: Initial money
+    date: 2023-01-01
+    transfers:
+      initial_money: -45002
+      money: 45002
+# Periods can be given inline or as a path to a file containing it.
+# It is recommended to at least separate out quarters into their own files.
+- january.yaml

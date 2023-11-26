@@ -12,7 +12,7 @@ pub struct StdFileIO {
 impl FileIO for StdFileIO {
   fn read_path(&mut self, path: &Path) -> String {
     std::fs::read_to_string(path)
-      .expect("File not found")
+      .expect(&format!("File not found: {}", path.display()))
   }
 }
 
@@ -24,13 +24,14 @@ pub struct FakeFileIO {
 impl FakeFileIO {
   pub fn new() -> Self {
     let mut out = std::collections::HashMap::new();
-    out.insert(Path::new("month.yaml"), "---
-  name: file-month
+    out.insert(Path::new("grouping.yaml"), "---
+  name: file-grouping
   transactions:
     - name: file-transaction
       date: 2023-01-30
-      amount: -300
-      account: debts
+      transfers:
+        debts: -300
+        money: 300
   "
     );
     Self{
@@ -42,7 +43,7 @@ impl FakeFileIO {
 impl FileIO for FakeFileIO {
   fn read_path(&mut self, path: &Path) -> String {
     self.fake_fs.get(path)
-      .expect("File not found")
+      .expect(&format!("File not found: {}", path.display()))
       .to_string()
   }
 }

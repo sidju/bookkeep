@@ -1,0 +1,21 @@
+name: January
+transactions:
+- name: Pay mortgage
+  date: 2023-01-03
+  # You can have any combination of transfers as long as they sum to 0.
+  # For example a single mortgage payment effectively both pays the interest and
+  # pays of the mortgage itself.
+  transfers:
+    money: -3000
+    mortgage: 2700
+    mortgage_interest: 300
+- name: January salary
+  date: 2023-01-25
+  transfers:
+    salary: -25034
+    money: 25034
+- name: Buy computer
+  date: 2023-01-25
+  transfers:
+    electronics: 25000
+    money: -25000
