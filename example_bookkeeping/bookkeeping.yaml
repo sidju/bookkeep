@@ -26,7 +26,8 @@ groupings:
 # This isn't verified across years, but subtracting from a specific account
 # corresponding to an account from previous bookkeeping makes it easy to check
 # against the previous year's sums.
-- name: Start of year
+- !Inlined
+  name: Start of year
   transactions:
   # A transaction should move money between named accounts
   # The moved money should sum to 0, provably not adding any new money.
@@ -34,8 +35,8 @@ groupings:
   - name: Initial mortgage
     date: 2023-01-01
     transfers:
-      initial_mortgage: 300000
-      mortgage: -300000
+      initial_mortgage: 300_000.00
+      mortgage: -300_000.00
   - name: Initial money
     date: 2023-01-01
     transfers:
@@ -43,4 +44,4 @@ groupings:
       money: 45002
 # Periods can be given inline or as a path to a file containing it.
 # It is recommended to at least separate out quarters into their own files.
-- january.yaml
+- !Path january.yaml

@@ -5,6 +5,7 @@ use serde::{
   Serialize,
   Deserialize,
 };
+use rust_decimal::Decimal;
 
 use std::path::PathBuf;
 use serde_yaml::from_str;
@@ -70,7 +71,6 @@ pub struct RealGrouping {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum Grouping {
   /// The yaml is inlined
   Inlined(RealGrouping),
@@ -94,7 +94,7 @@ pub struct Transaction {
   pub name: String,
   pub date: Date,
   #[serde(with = "tuple_vec_map")]
-  pub transfers: Vec<(String, i32)>,
+  pub transfers: Vec<(String, Decimal)>,
   // To keep paths to receipts/bills/descriptions...
   #[serde(flatten)]
   pub comments: std::collections::HashMap<String, String>,
@@ -111,8 +111,8 @@ mod test {
 name: test
 date: 2023-12-31
 transfers:
-  debts: -400
-  money: 400
+  debts: -400.00
+  money: 400.00
 ";
     let parsed: Transaction = from_str(&raw).unwrap();
     assert_eq!(
@@ -121,8 +121,8 @@ transfers:
         name: "test".to_owned(),
         date: Date::from_calendar_date(2023, time::Month::December, 31).unwrap(),
         transfers: vec![
-          ("debts".to_owned(), -400),
-          ("money".to_owned(), 400),
+          ("debts".to_owned(), Decimal::from(-400)),
+          ("money".to_owned(), Decimal::from(400)),
         ],
         comments: HashMap::new(),
       },
@@ -133,20 +133,21 @@ transfers:
   #[test]
   fn inner_grouping_and_inline_grouping() {
     let raw = "---
+!Inlined
 name: inline-grouping
 transactions:
 - name: inline-transaction
   date: 2023-12-31
   transfers:
-    debts: -400
-    money: 400
+    debts: -400.00
+    money: 400.00
 ";
     let expected = RealGrouping{
       name: "inline-grouping".to_owned(),
       transactions: vec![Transaction{
         name: "inline-transaction".to_owned(),
         date: Date::from_calendar_date(2023, time::Month::December, 31).unwrap(),
-        transfers: vec![("debts".to_owned(), -400),("money".to_owned(), 400)],
+        transfers: vec![("debts".to_owned(), (-400).into()),("money".to_owned(), 400.into())],
         comments: HashMap::new(),
       }],
     };
@@ -167,7 +168,7 @@ transactions:
 
   #[test]
   fn grouping_path() {
-    let raw = "grouping.yaml";
+    let raw = "!Path grouping.yaml";
     let parsed: Grouping = from_str(&raw).unwrap();
     assert_eq!(
       parsed.realize(&mut crate::FakeFileIO::new()),
@@ -176,7 +177,7 @@ transactions:
         transactions: vec![Transaction{
           name: "file-transaction".to_owned(),
           date: Date::from_calendar_date(2023, time::Month::January, 30).unwrap(),
-          transfers: vec![("debts".to_owned(), -300),("money".to_owned(), 300)],
+          transfers: vec![("debts".to_owned(), (-300).into()),("money".to_owned(), 300.into())],
           comments: HashMap::new(),
         }],
       },
@@ -194,15 +195,17 @@ accounts:
   groceries: expense
   salary: income
 groupings:
-- name: Start of year
+- !Inlined
+  name: Start of year
   transactions:
   - name: Money from last year
     date: 2023-01-01
     transfers:
-      starting_money: -45000
-      money: 45000
-- grouping.yaml
-- name: inline-grouping
+      starting_money: -45_000
+      money: 45_000
+- !Path grouping.yaml
+- !Inlined
+  name: inline-grouping
   transactions:
   - name: inline-transaction
     date: 2023-12-31
@@ -228,7 +231,10 @@ groupings:
             transactions: vec![Transaction{
               name: "Money from last year".to_owned(),
               date: Date::from_calendar_date(2023, time::Month::January, 1).unwrap(),
-              transfers: vec![("starting_money".to_owned(), -45000),("money".to_owned(), 45000)],
+              transfers: vec![
+                ("starting_money".to_owned(), (-45000).into()),
+                ("money".to_owned(), 45000.into()),
+              ],
               comments: HashMap::new(),
             }],
           },
@@ -238,7 +244,7 @@ groupings:
             transactions: vec![Transaction{
               name: "file-transaction".to_owned(),
               date: Date::from_calendar_date(2023, time::Month::January, 30).unwrap(),
-              transfers: vec![("debts".to_owned(), -300),("money".to_owned(), 300)],
+              transfers: vec![("debts".to_owned(), (-300).into()),("money".to_owned(), 300.into())],
               comments: HashMap::new(),
             }],
           },
@@ -248,7 +254,7 @@ groupings:
             transactions: vec![Transaction{
               name: "inline-transaction".to_owned(),
               date: Date::from_calendar_date(2023, time::Month::December, 31).unwrap(),
-              transfers: vec![("money".to_owned(), -300),("groceries".to_owned(), 300)],
+              transfers: vec![("money".to_owned(), (-300).into()),("groceries".to_owned(), 300.into())],
               comments: [
                 ("receipt".to_owned(), "./receipts/groceries-2023-12-31.jpeg".to_owned()),
               ].into(),

@@ -1,13 +1,14 @@
 use std::collections::BTreeMap;
 use serde::{Serialize};
+use rust_decimal::Decimal;
 
 use crate::types::*;
 
 // We use BTreeMap to give a consistent alphabetic sorting of accounts
 #[derive(Debug, Serialize)]
 pub struct Sums {
-  accounts: BTreeMap<String, i32>,
-  account_types: BTreeMap<AccountType, i32>,
+  accounts: BTreeMap<String, Decimal>,
+  account_types: BTreeMap<AccountType, Decimal>,
 }
 impl Sums {
   pub fn new() -> Self {
@@ -39,7 +40,7 @@ pub fn calculate(data: &RealBookkeeping) -> AllSums {
     let mut local = Sums::new();
     for transaction in &grouping.transactions {
       // Track the per-transaction sum, should be 0 error otherwise
-      let mut sum = 0;
+      let mut sum = Decimal::ZERO;
       // And save the data into relevant sum locations
       for (account, amount) in &transaction.transfers {
         sum += amount;
@@ -75,7 +76,9 @@ pub fn calculate(data: &RealBookkeeping) -> AllSums {
           .or_insert(*amount)
         ;
       }
-      if sum != 0 { panic!("Transaction {} didn't sum to 0, invalid.", transaction.name); }
+      if sum != Decimal::ZERO {
+        panic!("Transaction {} didn't sum to 0, invalid.", transaction.name);
+      }
     }
     sums.groupings.push((grouping.name.clone(), local));
   }
