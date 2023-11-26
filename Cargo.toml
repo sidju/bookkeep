@@ -1,6 +1,10 @@
 [package]
 name = "bookkeep"
+description = "A janky YAML based accounting application"
 version = "0.1.0"
+repository = "https://github.com/sidju/hired"
+authors = ["sidju <contact@sidju.se>"]
+license = "MIT"
 edition = "2021"
 
 [dependencies]
