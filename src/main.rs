@@ -21,10 +21,6 @@ pub struct Summary {
   groupings: Vec<(String, PartialSummary)>,
 }
 
-fn summarize(data: &RealBookkeeping, sums: &AllSums) -> Summary {
-  todo!()
-}
-
 fn main() {
   let mut io = StdFileIO{};
 
