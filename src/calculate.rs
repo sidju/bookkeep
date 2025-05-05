@@ -8,13 +8,13 @@ use crate::types::*;
 #[derive(Debug, Serialize)]
 pub struct Sums {
   accounts: BTreeMap<String, Decimal>,
-  account_types: BTreeMap<AccountType, Decimal>,
+  account_sums: BTreeMap<String, Decimal>,
 }
 impl Sums {
   pub fn new() -> Self {
     Self{
       accounts: BTreeMap::new(),
-      account_types: BTreeMap::new(),
+      account_sums: BTreeMap::new(),
     }
   }
 }
@@ -33,9 +33,9 @@ pub fn calculate(data: &RealBookkeeping) -> AllSums {
   };
   // We iterate over the periods, both
   // - summing all accounts for each period,
-  // - summing all account types for each period,
+  // - summing the account categories for each period
   // - summing all accounts for all periods and
-  // - summing all account types for all periods
+  // - summing the account categories for each period
   for grouping in &data.groupings {
     let mut local = Sums::new();
     for transaction in &grouping.transactions {
@@ -45,26 +45,13 @@ pub fn calculate(data: &RealBookkeeping) -> AllSums {
       for (account, amount) in &transaction.transfers {
         sum += amount;
 
-        // per account type summing first, as it may fail if the account isn't
-        // declared
-        let account_type = match data.accounts.get(account) {
+        // ensure that the account is declared
+        match data.accounts.get(account) {
           None => panic!("Transaction {} used undeclared account {}, invalid.", transaction.name, account),
-          Some(x) => x,
+          Some(x) => (),
         };
-        // Global
-        sums.global.account_types.entry(*account_type)
-          // If present, run this closure on a mut reference
-          .and_modify(|x| *x += amount)
-          // If absent insert this
-          .or_insert(*amount)
-        ;
-        // Local
-        local.account_types.entry(*account_type)
-          .and_modify(|x| *x += amount)
-          .or_insert(*amount)
-        ;
 
-        // Then the per-account summing
+        // Per-account summing
         // Global
         sums.global.accounts.entry(account.to_owned())
           .and_modify(|x| *x += amount)
@@ -80,6 +67,22 @@ pub fn calculate(data: &RealBookkeeping) -> AllSums {
         panic!("Transaction {} didn't sum to 0, invalid.", transaction.name);
       }
     }
+
+    // After summing all transactions, use the account sums to sum account categories
+    for (sum_name, accounts) in data.account_sums.iter() {
+      let mut sum = Decimal::ZERO;
+      for account in accounts {
+        sum += local.accounts.get(account).unwrap_or(&Decimal::ZERO);
+      }
+      local.account_sums.insert(sum_name.to_owned(), sum);
+
+      // We might as well add this to the global category sum as well here
+      sums.global.account_sums.entry(sum_name.to_owned())
+        .and_modify(|x| *x += sum)
+        .or_insert(sum)
+      ;
+    }
+
     sums.groupings.push((grouping.name.clone(), local));
   }
   sums

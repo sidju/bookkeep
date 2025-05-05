@@ -8,6 +8,7 @@ use serde::{
 use rust_decimal::Decimal;
 
 use std::path::PathBuf;
+use std::collections::HashMap;
 use serde_yaml::from_str;
 use time::Date;
 
@@ -37,7 +38,9 @@ pub struct RealBookkeeping {
   // A recognizeable name. Basically just a comment
   pub name: String,
   // Declare all accounts and their type
-  pub accounts: std::collections::HashMap<String, AccountType>,
+  pub accounts: HashMap<String, AccountType>,
+  // Secondary sums of these are created from the account sums
+  pub account_sums: HashMap<String, Vec<String>>,
   // Contains all the transaction data
   pub groupings: Vec<RealGrouping>,
 }
@@ -45,14 +48,22 @@ pub struct RealBookkeeping {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Bookkeeping {
   pub name: String,
-  pub accounts: std::collections::HashMap<String, AccountType>,
+  pub accounts: HashMap<AccountType, Vec<String>>,
+  pub account_sums: HashMap<String, Vec<String>>,
   pub groupings: Vec<Grouping>,
 }
 impl Bookkeeping {
   pub fn realize(mut self, io: &mut impl FileIO) -> RealBookkeeping {
     let real = RealBookkeeping{
       name: self.name,
-      accounts: self.accounts,
+      accounts: self.accounts.drain()
+        .fold(HashMap::new(), |mut m, (t, accounts)| {
+          for account in accounts {
+            m.insert(account, t);
+          }
+          m
+        }),
+      account_sums: self.account_sums.into(),
       groupings: self.groupings.drain(..).map(|m| m.realize(io)).collect(),
     };
     real.groupings.iter().fold(std::collections::HashSet::new(), |mut s, m|{
@@ -67,23 +78,40 @@ impl Bookkeeping {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RealGrouping {
   pub name: String,
-  pub transactions: Vec<Transaction>
+  pub transactions: Vec<Transaction>,
 }
-
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub enum Grouping {
-  /// The yaml is inlined
-  Inlined(RealGrouping),
-  /// A path to a file containing the yaml is given
-  Path(PathBuf),
+pub struct Grouping {
+  pub name: String,
+  pub transactions: Transactions
 }
 impl Grouping {
   pub fn realize(self, io: &mut impl FileIO) -> RealGrouping {
+    RealGrouping{
+      name: self.name,
+      transactions: self.transactions.realize(io)
+    }
+  }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub enum Transactions {
+  /// The yaml is inlined
+  Inlined(Vec<Transaction>),
+  /// A path to a file containing the yaml is given
+  Paths(Vec<PathBuf>),
+}
+impl Transactions {
+  pub fn realize(self, io: &mut impl FileIO) -> Vec<Transaction> {
     match self {
-      Grouping::Inlined(i) => i,
-      Grouping::Path(path) => {
-        let raw = io.read_path(&path);
-        from_str(&raw).expect(&format!("Invalid format at {}", path.display()))
+      Transactions::Inlined(i) => i,
+      Transactions::Paths(paths) => {
+        let mut transactions = Vec::new();
+        for path in paths {
+          let raw = io.read_path(&path);
+          transactions.append(&mut from_str(&raw).expect(&format!("Invalid format at {}", path.display())))
+        }
+        transactions
       }
     }
   }
