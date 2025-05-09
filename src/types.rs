@@ -31,7 +31,7 @@ pub enum AccountType {
   // another account. (When you have multiple periods of bookkeeping you can
   // validate the initial value against the calculated result of the previous
   // period.)
-  InitialValue,
+  YearlyResult,
 }
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RealBookkeeping {
@@ -48,23 +48,25 @@ pub struct RealBookkeeping {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Bookkeeping {
   pub name: String,
-  pub accounts: HashMap<AccountType, Vec<String>>,
-  pub account_sums: HashMap<String, Vec<String>>,
+  #[serde(with = "tuple_vec_map")]
+  pub accounts: Vec<(AccountType, Vec<String>)>,
+  #[serde(with = "tuple_vec_map")]
+  pub account_sums: Vec<(String, Vec<String>)>,
   pub groupings: Vec<Grouping>,
 }
 impl Bookkeeping {
-  pub fn realize(mut self, io: &mut impl FileIO) -> RealBookkeeping {
+  pub fn realize(&self, io: &mut impl FileIO) -> RealBookkeeping {
     let real = RealBookkeeping{
-      name: self.name,
-      accounts: self.accounts.drain()
+      name: self.name.clone(),
+      accounts: self.accounts.iter()
         .fold(HashMap::new(), |mut m, (t, accounts)| {
           for account in accounts {
-            m.insert(account, t);
+            m.insert(account.to_owned(), *t);
           }
           m
         }),
-      account_sums: self.account_sums.into(),
-      groupings: self.groupings.drain(..).map(|m| m.realize(io)).collect(),
+      account_sums: self.account_sums.clone().drain(..).collect(),
+      groupings: self.groupings.iter().map(|m| m.realize(io)).collect(),
     };
     real.groupings.iter().fold(std::collections::HashSet::new(), |mut s, m|{
       if !s.insert(&m.name) { panic!("Duplicate grouping {}", m.name); }
@@ -86,15 +88,15 @@ pub struct Grouping {
   pub transactions: Transactions
 }
 impl Grouping {
-  pub fn realize(self, io: &mut impl FileIO) -> RealGrouping {
+  pub fn realize(&self, io: &mut impl FileIO) -> RealGrouping {
     RealGrouping{
-      name: self.name,
+      name: self.name.clone(),
       transactions: self.transactions.realize(io)
     }
   }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum Transactions {
   /// The yaml is inlined
   Inlined(Vec<Transaction>),
@@ -102,9 +104,9 @@ pub enum Transactions {
   Paths(Vec<PathBuf>),
 }
 impl Transactions {
-  pub fn realize(self, io: &mut impl FileIO) -> Vec<Transaction> {
+  pub fn realize(&self, io: &mut impl FileIO) -> Vec<Transaction> {
     match self {
-      Transactions::Inlined(i) => i,
+      Transactions::Inlined(i) => i.to_vec(),
       Transactions::Paths(paths) => {
         let mut transactions = Vec::new();
         for path in paths {
@@ -117,7 +119,7 @@ impl Transactions {
   }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Transaction {
   pub name: String,
   pub date: Date,

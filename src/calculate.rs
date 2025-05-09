@@ -1,29 +1,30 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use serde::{Serialize};
 use rust_decimal::Decimal;
 
 use crate::types::*;
 
-// We use BTreeMap to give a consistent alphabetic sorting of accounts
 #[derive(Debug, Serialize)]
 pub struct Sums {
-  accounts: BTreeMap<String, Decimal>,
-  account_sums: BTreeMap<String, Decimal>,
+  pub accounts: HashMap<String, Decimal>,
+  pub account_sums: HashMap<String, Decimal>,
+  pub account_types: HashMap<AccountType, Decimal>,
 }
 impl Sums {
   pub fn new() -> Self {
     Self{
-      accounts: BTreeMap::new(),
-      account_sums: BTreeMap::new(),
+      accounts: HashMap::new(),
+      account_sums: HashMap::new(),
+      account_types: HashMap::new(),
     }
   }
 }
 #[derive(Debug, Serialize)]
 pub struct AllSums {
-  global: Sums,
+  pub global: Sums,
   // Use Vec of tuples, so that the order the groupings were given in is preserved
   #[serde(with = "tuple_vec_map")]
-  groupings: Vec<(String, Sums)>,
+  pub groupings: Vec<(String, Sums)>,
 }
 
 pub fn calculate(data: &RealBookkeeping) -> AllSums {
@@ -46,10 +47,18 @@ pub fn calculate(data: &RealBookkeeping) -> AllSums {
         sum += amount;
 
         // ensure that the account is declared
-        match data.accounts.get(account) {
+        let account_type = match data.accounts.get(account) {
           None => panic!("Transaction {} used undeclared account {}, invalid.", transaction.name, account),
-          Some(x) => (),
+          Some(x) => x,
         };
+        sums.global.account_types.entry(account_type.to_owned())
+          .and_modify(|x| *x += amount)
+          .or_insert(*amount)
+        ;
+        local.account_types.entry(account_type.to_owned())
+          .and_modify(|x| *x += amount)
+          .or_insert(*amount)
+        ;
 
         // Per-account summing
         // Global
@@ -64,7 +73,7 @@ pub fn calculate(data: &RealBookkeeping) -> AllSums {
         ;
       }
       if sum != Decimal::ZERO {
-        panic!("Transaction {} didn't sum to 0, invalid.", transaction.name);
+        panic!("Transaction {} didn't sum to 0, invalid. (sum: {})", transaction.name, sum);
       }
     }
 
