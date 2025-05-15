@@ -9,6 +9,7 @@ use cursive::{
   views::{
     LinearLayout,
     TextView,
+    ScrollView,
   },
 };
 use cursive_table_view::{
@@ -153,7 +154,9 @@ pub fn run_tui(
   //  .child(
   //  )
   //;
-  siv.add_layer(detail_tree.with_name("detail_tree"));
+  siv.add_layer(
+    ScrollView::new(detail_tree).with_name("detail_tree")
+  );
 
   siv.run();
 }
