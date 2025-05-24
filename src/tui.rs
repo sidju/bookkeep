@@ -64,7 +64,7 @@ use cursive_tree_view::{
 
 fn grouping_summary_to_tree_entries(
   tree: &mut TreeView<String>,
-  gs: &GroupingSummary,
+  gs: &SummedGrouping,
   row: usize,
 ) {
   let r = tree.insert_item(
@@ -72,20 +72,28 @@ fn grouping_summary_to_tree_entries(
     Placement::LastChild,
     row,
   ).expect("The row on which grouping_summary_to_tree_entries is called on must not be collapsed");
-  for (t, accounts_sum) in &gs.account_types {
+  for (t, sum, accounts) in &gs.account_types {
     let inner_r = tree.insert_item(
-      format!("{:?}: ({})", t, accounts_sum.total),
+      format!("{:?}: ({})", t, sum),
       Placement::LastChild,
       r,
     ).unwrap();
-    tree.set_collapsed(inner_r, true);
-    for (account, sum) in &accounts_sum.accounts {
-      tree.insert_item(
-        format!("{}: ({})", account, sum),
+    for account in accounts {
+      let innermost_r = tree.insert_item(
+        format!("{}: ({})", account.name, account.sum),
         Placement::LastChild,
         inner_r,
-      );
+      ).unwrap();
+      for transfer in &account.transfers {
+        tree.insert_item(
+          format!("{}, {}: ({})", transfer.name, transfer.date, transfer.amount),
+          Placement::LastChild,
+          innermost_r,
+        );
+      }
+      tree.set_collapsed(innermost_r, true);
     }
+    tree.set_collapsed(inner_r, true);
   }
   tree.set_collapsed(r, true);
 
@@ -94,26 +102,34 @@ fn grouping_summary_to_tree_entries(
     Placement::After,
     r,
   ).unwrap();
-  for (name, accounts_sum) in &gs.account_sums {
+  for (name, sum, accounts) in &gs.account_sums {
     let inner_r = tree.insert_item(
-      format!("{}: ({})", name, accounts_sum.total),
+      format!("{}: ({})", name, sum),
       Placement::LastChild,
       r,
     ).unwrap();
-    tree.set_collapsed(inner_r, true);
-    for (account, sum) in &accounts_sum.accounts {
-      tree.insert_item(
-        format!("{}: ({})", account, sum),
+    for account in accounts {
+      let innermost_r = tree.insert_item(
+        format!("{}: ({})", account.name, account.sum),
         Placement::LastChild,
         inner_r,
-      );
+      ).unwrap();
+      for transfer in &account.transfers {
+        tree.insert_item(
+          format!("{}, {}: ({})", transfer.name, transfer.date, transfer.amount),
+          Placement::LastChild,
+          innermost_r,
+        );
+      }
+      tree.set_collapsed(innermost_r, true);
     }
+    tree.set_collapsed(inner_r, true);
   }
   tree.set_collapsed(r, true);
 }
 
 pub fn run_tui(
-  summary: Summary,
+  summary: SummedBookkeeping,
 ) {
   let mut siv = Cursive::new();
   siv.add_global_callback('q', |s| s.quit());

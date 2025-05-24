@@ -1,6 +1,5 @@
 use cursive::backends::crossterm::crossterm::tty::IsTty;
 
-use rust_decimal::Decimal;
 
 mod types;
 use types::*;
@@ -8,8 +7,6 @@ mod file_io;
 use file_io::*;
 mod calculate;
 use calculate::*;
-mod render;
-use render::*;
 mod tui;
 use tui::*;
 
@@ -23,14 +20,12 @@ fn main() {
   ;
   let real = parsed.realize(&mut io);
   // Do all the calculations
-  let calc = calculate(&real);
-  // Render them helpfully, reapplying ordering from input
-  let rendered = Summary::create(&calc, &parsed);
+  let calc = calculate(real);
 
   if std::io::stdout().is_tty() {
-    run_tui(rendered);
+    run_tui(calc);
   }
   else {
-    println!("{}", serde_yaml::to_string(&rendered).unwrap());
+    println!("{}", serde_yaml::to_string(&calc).unwrap());
   }
 }
