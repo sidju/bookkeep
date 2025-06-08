@@ -17,6 +17,7 @@ pub struct Transfer {
   pub date: time::Date,
   pub name: String,
   pub amount: Decimal,
+  pub resulting_balance: Decimal,
   pub unique_id: String,
   // Other transfers in the same Transaction
   // (Their sum is asserted to be -1 * Transfer.amount)
@@ -72,40 +73,39 @@ pub fn calculate(data: RealBookkeeping) -> SummedBookkeeping {
           panic!("Transaction {} used undeclared account {}, invalid.", transaction.name, account)
         };
 
-        // Per-account summing
+        // Per-account transfer aggregation (sums calculated after, while setting resulting_balance)
         let transfer = Transfer {
           date: transaction.date.clone(),
           name: transaction.name.clone(),
           amount: *amount,
+          resulting_balance: Decimal::ZERO,
           unique_id: format!("{}[{}][{}]", grouping.name, transaction.index, i),
           // Includes self, but who cares
           related_transfers: transaction.transfers.clone(),
         };
         // Global
         total_accounts.entry(account.to_owned())
-          .and_modify(|mut x| {
-            x.sum += amount;
+          .and_modify(|x| {
             if ! x.transfers.insert(
               transfer.clone()
             ) { panic!("Identical transactions matching: {:?}", transaction) }
           })
           .or_insert(SummedAccount{
             name: account.to_owned(),
-            sum: *amount,
+            sum: Decimal::ZERO,
             transfers: [transfer.clone()].into(),
           })
         ;
         // Local
         grouping_accounts.entry(account.to_owned())
-          .and_modify(|mut x| {
-            x.sum += amount;
+          .and_modify(|x| {
             if !x.transfers.insert(
               transfer.clone()
             ) { panic!("Identical transactions matching: {:?}", transaction) }
           })
           .or_insert(SummedAccount{
             name: account.to_owned(),
-            sum: *amount,
+            sum: Decimal::ZERO,
             transfers: [transfer.clone()].into(),
           })
         ;
@@ -114,6 +114,20 @@ pub fn calculate(data: RealBookkeeping) -> SummedBookkeeping {
         panic!("Transaction {} didn't sum to 0, invalid. (sum: {})", transaction.name, sum);
       }
     }
+
+    // After aggregating transfers for all accounts, sum each account
+    grouping_accounts = grouping_accounts.into_iter().map(|(account, mut sums)| {
+      (sums.sum, sums.transfers) = sums.transfers.into_iter()
+        .fold(
+          (Decimal::ZERO, BTreeSet::new()),
+          |(mut sum, mut transfers), mut transfer| -> (Decimal, BTreeSet<Transfer>) {
+            sum += transfer.amount;
+            transfer.resulting_balance = sum;
+            transfers.insert(transfer);
+            (sum, transfers)
+      });
+      (account, sums)
+    }).fold(BTreeMap::new(), |mut map, (k,v)| { assert!(map.insert(k,v).is_none()); map } );
 
     // After summing all transactions, use the account sums to sum account categories
     let mut account_sums = Vec::new();
@@ -149,6 +163,21 @@ pub fn calculate(data: RealBookkeeping) -> SummedBookkeeping {
 
   // Finally do the same summing of account_sums and account_types as within
   // each grouping, this time using the total_accounts
+  // After aggregating transfers for all accounts, sum each account
+  // After aggregating transfers for all accounts, sum each account
+  total_accounts = total_accounts.into_iter().map(|(account, mut sums)| {
+    (sums.sum, sums.transfers) = sums.transfers.into_iter()
+      .fold(
+        (Decimal::ZERO, BTreeSet::new()),
+        |(mut sum, mut transfers), mut transfer| -> (Decimal, BTreeSet<Transfer>) {
+          sum += transfer.amount;
+          transfer.resulting_balance = sum;
+          transfers.insert(transfer);
+          (sum, transfers)
+    });
+    (account, sums)
+  }).fold(BTreeMap::new(), |mut map, (k,v)| { assert!(map.insert(k,v).is_none()); map } );
+
   let mut account_sums = Vec::new();
   for (sum_name, accounts) in data.account_sums.iter() {
     let mut sum = Decimal::ZERO;

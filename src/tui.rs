@@ -86,7 +86,7 @@ fn grouping_summary_to_tree_entries(
       ).unwrap();
       for transfer in &account.transfers {
         tree.insert_item(
-          format!("{}, {}: ({})", transfer.name, transfer.date, transfer.amount),
+          format!("{}, {}: ({} -> {})", transfer.name, transfer.date, transfer.amount, transfer.resulting_balance),
           Placement::LastChild,
           innermost_r,
         );
@@ -116,7 +116,7 @@ fn grouping_summary_to_tree_entries(
       ).unwrap();
       for transfer in &account.transfers {
         tree.insert_item(
-          format!("{}, {}: ({})", transfer.name, transfer.date, transfer.amount),
+          format!("{}, {}: ({} -> {})", transfer.name, transfer.date, transfer.amount, transfer.resulting_balance),
           Placement::LastChild,
           innermost_r,
         );
